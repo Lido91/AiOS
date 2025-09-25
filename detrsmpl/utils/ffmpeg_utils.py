@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Tuple, Union
 
 import numpy as np
+from fractions import Fraction
 
 from detrsmpl.utils.path_utils import check_input_path, prepare_output_path
 
@@ -515,8 +516,23 @@ class vid_info_reader(object):
         ]
         process = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, _ = process.communicate()
-        probe = json.loads(out.decode('utf-8'))
+        out, err = process.communicate()
+        if process.returncode != 0:
+            err_msg = err.decode('utf-8', errors='ignore').strip()
+            raise RuntimeError(f"ffprobe failed for {input_path}: {err_msg}")
+        output = out.decode('utf-8')
+        if not output.strip():
+            err_msg = err.decode('utf-8', errors='ignore').strip()
+            raise RuntimeError(
+                f"ffprobe produced no output for {input_path}. stderr: {err_msg}"
+            )
+        try:
+            probe = json.loads(output)
+        except json.JSONDecodeError as exc:
+            err_msg = err.decode('utf-8', errors='ignore').strip()
+            raise RuntimeError(
+                f"ffprobe returned invalid JSON for {input_path}. stderr: {err_msg}"
+            ) from exc
         video_stream = next((stream for stream in probe['streams']
                              if stream['codec_type'] == 'video'), None)
         if video_stream is None:
@@ -647,7 +663,23 @@ def video_to_images(input_path: str,
         path_type='dir',
         overwrite=True)
     info = vid_info_reader(input_path)
-    num_frames = int(info['nb_frames'])
+    video_stream = info.video_stream
+    nb_frames_str = video_stream.get('nb_frames')
+    num_frames = None
+    if nb_frames_str and nb_frames_str.isdigit():
+        num_frames = int(nb_frames_str)
+    else:
+        duration_str = video_stream.get('duration') or info.video_stream.get('duration')
+        fps_str = video_stream.get('avg_frame_rate') or video_stream.get('r_frame_rate')
+        if duration_str and fps_str and fps_str not in ('0/0', '0', 'N/A'):
+            try:
+                fps = float(Fraction(fps_str))
+                duration = float(duration_str)
+                num_frames = max(1, int(round(duration * fps)))
+            except (ValueError, ZeroDivisionError):
+                num_frames = None
+    if num_frames is None:
+        raise RuntimeError(f'Unable to determine frame count for {input_path}')
     start = (min(start, num_frames - 1) + num_frames) % num_frames
     end = (min(end, num_frames - 1) +
            num_frames) % num_frames if end is not None else num_frames
@@ -665,6 +697,9 @@ def video_to_images(input_path: str,
     if not disable_log:
         print(f'Running \"{" ".join(command)}\"')
     subprocess.call(command)
+
+
+
 
 
 def images_to_video(input_folder: str,

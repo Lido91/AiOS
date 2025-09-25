@@ -256,10 +256,15 @@ class SMPLRenderer(BaseRenderer):
                                     int(1 * self.final_resolution[1] / 1000))
                 if self.final_resolution != self.resolution:
                     im = cv2.resize(im, self.final_resolution, cv2.INTER_CUBIC)
-                # cv2.imwrite(osp.join(folder, self.out_img_format % real_idx),
-                #             im)
-                # cv2.imwrite(self.output_path+'temp.jpg', im)
-                cv2.imwrite(self.output_path, im)
+                output_target = Path(self.output_path) if self.output_path is not None else None
+                suffix = (output_target.suffix.lower() if output_target is not None else None)
+                if suffix in {".png", ".jpg", ".jpeg"}:
+                    cv2.imwrite(str(output_target), im)
+                else:
+                    folder_path = Path(folder)
+                    folder_path.mkdir(parents=True, exist_ok=True)
+                    frame_name = self.out_img_format % real_idx
+                    cv2.imwrite(str(folder_path / frame_name), im)
 
         # return
         if self.return_tensor:

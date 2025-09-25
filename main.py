@@ -6,7 +6,7 @@ import time
 import shutil
 from pathlib import Path
 import os, sys
-
+import wandb
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -22,6 +22,7 @@ from util.config import DictAction, cfg
 from util.utils import ModelEma
 
 import debugpy
+import pdb
 def get_args_parser():
     parser = argparse.ArgumentParser('Set transformer detector',
                                      add_help=False)
@@ -114,6 +115,10 @@ def main(args):
         args.use_ema = False
     if not getattr(args, 'debug', None):
         args.debug = False
+    else:
+        debugpy.listen(("0.0.0.0", 5678))  # choose any open port
+        print("Waiting for debugger attach on port 5678…")
+        debugpy.wait_for_client()          # blocks until your IDE connects
 
 
     # setup logger
@@ -197,11 +202,13 @@ def main(args):
             ' import ' + cfg.testset)
     
     
+    
     if not args.inference:
         dataset_val = eval(cfg.testset)(transforms.ToTensor(), "test")
     else:
         dataset_val = eval(cfg.testset)(args.inference_input, args.output_dir)
         
+    # Will first split video into dataset perframe
     data_loader_val = build_dataloader(
     dataset_val,
     args.batch_size,
@@ -284,8 +291,17 @@ def main(args):
         model_without_ddp.load_state_dict(_tmp_st, strict=False)
 
 
-
+    
+  
     if args.eval:
+        print('Start Inferencing...., Login Wandb fist')
+
+        start_time = time.time()
+
+        wandb.login(key='d27f3b3e72d749fb99315e0e86c6b36b6e23617e')
+        wandb.init(project=f'Aios_input_count',name=f"Inference_{args.output_dir.split('/')[-1]}")
+                
+
         os.environ['EVAL_FLAG'] = 'TRUE'
         if args.inference_input is not None and args.inference:
             inference(model,
@@ -295,7 +311,11 @@ def main(args):
                      device,
                      args.output_dir,
                      wo_class_error=wo_class_error,
-                     args=args)            
+                     args=args)
+            total_time_infer = time.time() - start_time
+            print("--- %s seconds ---" % (total_time_infer))
+            wandb.log({"Time in total": total_time_infer})
+
         else:
             from config.config import cfg
             cfg.result_dir=args.output_dir

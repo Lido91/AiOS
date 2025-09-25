@@ -27,11 +27,22 @@ from detrsmpl.core.visualization.visualize_smpl import visualize_smpl_hmr,render
 from detrsmpl.models.body_models.builder import build_body_model
 from detrsmpl.core.visualization.visualize_keypoints3d import visualize_kp3d
 from detrsmpl.data.data_structures.multi_human_data import MultiHumanData
-from detrsmpl.utils.ffmpeg_utils import video_to_images
+from detrsmpl.utils.ffmpeg_utils import video_to_images, vid_info_reader
 from mmcv.runner import get_dist_info
 from config.config import cfg
 import torch.distributed as dist
 import shutil
+
+from fractions import Fraction
+
+def _parse_fps(value: str, default: float = 30.0) -> float:
+    if value and value not in ("0/0", "0", "N/A"):
+        try:
+            return float(Fraction(value))
+        except (ValueError, ZeroDivisionError):
+            pass
+    return float(default)
+
 
 class INFERENCE(torch.utils.data.Dataset):
     def __init__(self, img_dir=None,out_path=None):
@@ -46,11 +57,18 @@ class INFERENCE(torch.utils.data.Dataset):
         if self.img_dir.endswith('.mp4'):
             self.is_vid = True
             img_name = self.img_dir.split('/')[-1][:-4]
-            # self.img_dir = self.img_dir[:-4]
         else:
             img_name = self.img_dir.split('/')[-1]
-        self.img_name = img_name+'_out'
-        self.output_path = os.path.join(self.output_path,self.img_name)
+        self.img_name = img_name + '_out'
+
+        if self.is_vid:
+            info = vid_info_reader(self.img_dir)
+            fps_str = info.video_stream.get('avg_frame_rate') or info.video_stream.get('r_frame_rate')
+            self.source_fps = _parse_fps(fps_str)
+        else:
+            self.source_fps = 30.0
+
+        self.output_path = os.path.join(self.output_path, self.img_name)
         os.makedirs(self.output_path, exist_ok=True)
         self.tmp_dir = os.path.join(self.output_path, 'temp_img')
         os.makedirs(self.tmp_dir, exist_ok=True)

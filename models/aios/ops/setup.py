@@ -17,6 +17,7 @@ from torch.utils.cpp_extension import CUDAExtension
 
 from setuptools import find_packages
 from setuptools import setup
+import pdb
 
 requirements = ['torch', 'torchvision']
 
@@ -33,6 +34,8 @@ def get_extensions():
     extension = CppExtension
     extra_compile_args = {'cxx': []}
     define_macros = []
+    # pdb.set_trace()
+
 
     if torch.cuda.is_available() and CUDA_HOME is not None:
         extension = CUDAExtension
@@ -43,6 +46,7 @@ def get_extensions():
             '-D__CUDA_NO_HALF_OPERATORS__',
             '-D__CUDA_NO_HALF_CONVERSIONS__',
             '-D__CUDA_NO_HALF2_OPERATORS__',
+            '-allow-unsupported-compiler',
         ]
     else:
         raise NotImplementedError('Cuda is not availabel')

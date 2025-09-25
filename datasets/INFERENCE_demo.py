@@ -3,6 +3,8 @@ import os.path as osp
 from glob import glob
 import shutil
 
+from fractions import Fraction
+
 import mmcv
 import cv2
 import torch
@@ -18,7 +20,16 @@ from detrsmpl.data.datasets.pipelines.transforms import Normalize
 from detrsmpl.core.conventions.keypoints_mapping import convert_kps
 from detrsmpl.core.visualization.visualize_smpl import render_smpl
 from detrsmpl.models.body_models.builder import build_body_model
-from detrsmpl.utils.ffmpeg_utils import video_to_images
+from detrsmpl.utils.ffmpeg_utils import video_to_images, vid_info_reader
+
+def _parse_fps(value: str, default: float = 30.0) -> float:
+    if value and value not in ("0/0", "0", "N/A"):
+        try:
+            return float(Fraction(value))
+        except (ValueError, ZeroDivisionError):
+            pass
+    return float(default)
+
 
 class INFERENCE_demo(torch.utils.data.Dataset):
     def __init__(self, img_dir=None, out_path=None):
@@ -46,6 +57,13 @@ class INFERENCE_demo(torch.utils.data.Dataset):
             # self.img_dir = self.img_dir[:-4]
         else:
             self.img_name = self.img_dir.split('/')[-1]
+        
+        if self.is_vid:
+            info = vid_info_reader(self.img_dir)
+            fps_str = info.video_stream.get('avg_frame_rate') or info.video_stream.get('r_frame_rate')
+            self.source_fps = _parse_fps(fps_str)
+        else:
+            self.source_fps = 30.0
         
         self.output_path = os.path.join(self.output_path, self.img_name)
         os.makedirs(self.output_path, exist_ok=True)

@@ -336,17 +336,21 @@ def inference(model,
             if need_tgt_for_training:
                 # outputs = model(samples, targets)
                 outputs, targets, data_batch_nc = model(data_batch)
+
             else:
                 outputs,targets, data_batch_nc = model(data_batch)
         
         orig_target_sizes = torch.stack([t["size"] for t in targets], dim=0)
+        
+        # Convert raw model input + original image size -> inference retuls
         result = postprocessors['bbox'](outputs, orig_target_sizes, targets, data_batch_nc)    
 
         dataset.inference(result)
 
     if rank == 0 and args.to_vid:
         if hasattr(dataset,'result_img_dir'):
-            images_to_video(dataset.result_img_dir, os.path.join(dataset.output_path, dataset.img_name+'_demo.mp4'),remove_raw_file=False, fps=30)
+            output_fps = getattr(dataset, 'source_fps', 30)
+            images_to_video(dataset.result_img_dir, os.path.join(dataset.output_path, dataset.img_name+'_demo.mp4'), remove_raw_file=False, fps=output_fps)
             # shutil.rmtree(dataset.result_img_dir)
             # shutil.rmtree(dataset.tmp_dir)
 
