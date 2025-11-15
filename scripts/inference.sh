@@ -7,19 +7,30 @@ OUTPUT_DIR=$3
 NUM_PERSON=${4:-1}
 THRESHOLD=${5:-0.3}
 GPU_NUM=${6:-8}
-# export CUDA_VISIBLE_DEVICES=${GPU_ID}
-python -m torch.distributed.launch \
+ID_FILE=${7:-}  # Optional id.txt file path
+export CUDA_VISIBLE_DEVICES=2,3
+
+# Build the command with optional id_file parameter
+CMD="python -m torch.distributed.launch \
     --nproc_per_node ${GPU_NUM} \
     main.py \
-    -c "config/aios_smplx_demo.py" \
-    --options batch_size=8 backbone="resnet50" num_person=${NUM_PERSON} threshold=${THRESHOLD} \
+    -c config/aios_smplx_demo.py \
+    --options batch_size=8 backbone=resnet50 num_person=${NUM_PERSON} threshold=${THRESHOLD} testset=INFERENCE \
     --resume ${CHECKPOINT} \
     --eval \
     --inference \
-    --to_vid \
     --inference_input ${INPUT_VIDEO} \
-    --output_dir demo/${OUTPUT_DIR} \
+    --output_dir demo/${OUTPUT_DIR}"
+
+# Add id_file parameter if provided
+if [ -n "${ID_FILE}" ]; then
+    CMD="${CMD} --id_file ${ID_FILE}"
+fi
+
+# Execute the command
+eval ${CMD}
     # --debug
+    # --to_vid 
 
 
 
@@ -47,4 +58,3 @@ python -m torch.distributed.launch \
 #   --to_vid \
 #   --inference_input "${INPUT_VIDEO}" \
 #   --output_dir "demo/${OUTPUT_DIR}"
-

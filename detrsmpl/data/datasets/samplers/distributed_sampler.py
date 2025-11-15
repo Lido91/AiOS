@@ -28,9 +28,13 @@ class DistributedSampler(_DistributedSampler):
 
         # add extra samples to make it evenly divisible
         if self.round_up:
-            indices = (
-                indices *
-                int(self.total_size / len(indices) + 1))[:self.total_size]
+            if len(indices) == 0:
+                # dataset can be empty during evaluation; nothing to distribute
+                assert self.total_size == 0
+            else:
+                indices = (
+                    indices *
+                    int(self.total_size / len(indices) + 1))[:self.total_size]
         assert len(indices) == self.total_size
 
         # subsample

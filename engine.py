@@ -344,7 +344,7 @@ def inference(model,
         
         # Convert raw model input + original image size -> inference retuls
         result = postprocessors['bbox'](outputs, orig_target_sizes, targets, data_batch_nc)    
-
+        # 
         dataset.inference(result)
 
     if rank == 0 and args.to_vid:

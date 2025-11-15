@@ -173,27 +173,71 @@ python setup.py build install
 cd ../../..
 ```
 
-## Inference 
-- Place the mp4 video for inference under `AiOS/demo/`
+## Inference
+The inference script supports multiple input formats:
+- **Video files**: `.mp4` video files
+- **Single images**: Individual image files (`.jpg`, `.png`, `.jpeg`)
+- **Image directories**: Directories containing images (supports recursive subdirectories)
+
+### Setup
 - Prepare the pretrained models to be used for inference under `AiOS/data/checkpoint`
-- Inference output will be saved in `AiOS/demo/{INPUT_VIDEO}_out` 
+- Prepare your input data (video file or image directory)
 
+### Usage
 ```bash
-# CHECKPOINT: checkpoint path
-# INPUT_VIDEO: input video path
-# OUTPUT_DIR: output path
-# NUM_PERSON: num of person. This parameter sets the expected number of persons to be detected in the input (image or video). 
-#   The default value is 1, meaning the algorithm will try to detect at least one person. If you know the maximum number of persons
-#   that can appear simultaneously, you can set this variable to that number to optimize the detection process (a lower threshold is recommended as well).
-# THRESHOLD: socre threshold. This parameter sets the score threshold for person detection. The default value is 0.5. 
-#   If the confidence score of a detected person is lower than this threshold, the detection will be discarded. 
-#   Adjusting this threshold can help in filtering out false positives or ensuring only high-confidence detections are considered.
-# GPU_NUM: GPU num. 
-sh scripts/inference.sh {CHECKPOINT} {INPUT_VIDEO} {OUTPUT_DIR} {NUM_PERSON} {THRESHOLD} {THRESHOLD}
+# Parameters:
+# CHECKPOINT: Path to checkpoint file
+# INPUT: Path to input video or image directory (supports absolute or relative paths)
+# OUTPUT_DIR: Path to output directory where results will be saved
+# NUM_PERSON: Number of persons to detect (default: 1). Set to expected maximum number of persons
+#   that can appear simultaneously for optimal detection (lower threshold recommended for multiple persons)
+# THRESHOLD: Score threshold for person detection (default: 0.5). Detections below this confidence
+#   score will be discarded. Adjust to filter false positives or ensure high-confidence detections
+# GPU_NUM: Number of GPUs to use (default: 8)
+# ID_FILE: (Optional) Path to id.txt file for filtering which samples to process
 
-# For inferencing short_video.mp4 with output directory of demo/short_video_out
-sh scripts/inference.sh data/checkpoint/aios_checkpoint.pth short_video.mp4 demo 2 0.1 8
+sh scripts/inference.sh {CHECKPOINT} {INPUT} {OUTPUT_DIR} {NUM_PERSON} {THRESHOLD} {GPU_NUM} {ID_FILE}
+
+# Example 1: Inferencing a video
+sh scripts/inference.sh data/checkpoint/aios_checkpoint.pth demo/short_video.mp4 demo 2 0.1 8
+
+# Example 2: Inferencing an image directory with recursive subdirectories
+sh scripts/inference.sh data/checkpoint/aios_checkpoint.pth demo/images/ demo/output 2 0.1 8
+
+# Example 3: Using absolute paths for large-scale dataset processing
+sh scripts/inference.sh data/checkpoint/aios_checkpoint.pth /data/hwu/how2sign/how2sign_images_val /data/hwu/how2sign/how2sign_smplx_val 1 0.6 2
+
+# Example 4: Processing only specific IDs from id.txt file
+# Create an id.txt file with one ID per line (image names without extension or subdirectory/image_name)
+sh scripts/inference.sh data/checkpoint/aios_checkpoint.pth /data/hwu/how2sign/how2sign_images_val /data/hwu/how2sign/how2sign_smplx_val 1 0.6 2 data/id.txt
 ```
+
+### Filtering Samples with id.txt
+For large-scale datasets, you can control which samples to process by providing an `id.txt` file:
+
+1. Create an `id.txt` file with one ID per line:
+   ```
+   frame_001
+   frame_002
+   subdir/frame_005
+   ```
+   - For flat image directories: Use just the image name without extension (e.g., `image001`)
+   - For nested directories: Use relative path with image name (e.g., `subdir/image001`)
+   - For video frames: Use the frame name without extension
+
+2. Pass the id.txt file as the 7th parameter to the inference script
+
+This is particularly useful for:
+- Processing only a subset of a large dataset
+- Resuming interrupted processing by filtering out already processed samples
+- Running inference on specific validation or test splits
+
+### Output Structure
+- Output will be saved to `{OUTPUT_DIR}/{INPUT_NAME}_out/`
+- For videos: SMPL-X parameters saved to `{OUTPUT_DIR}/{VIDEO_NAME}_out/smplx_params/`
+- For image directories: SMPL-X parameters saved to `{OUTPUT_DIR}/{DIR_NAME}_out/smplx_params/`
+  - **Preserves input directory structure**: Nested subdirectories in the input will be mirrored in the output
+- Each detected person is saved as `{FRAME_NAME}_person_{INDEX}.pkl` containing SMPL-X parameters
 ## Test
 
 <table>
