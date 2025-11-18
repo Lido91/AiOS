@@ -28,5 +28,7 @@ if __name__ == "__main__":
     # concat_side_by_side("_0-JkwZ9o4Q_5-5-rgb_front/_0-JkwZ9o4Q_5-5-rgb_front.mp4","/data/hwu/how2sign/raw_videos_train/_0-JkwZ9o4Q_5-5-rgb_front.mp4") #text+audio fuison(new)
     # concat_side_by_side("f8ShD9YwEfo_18-2-rgb_front/f8ShD9YwEfo_18-2-rgb_front.mp4","/data/hwu/how2sign/raw_videos_train/f8ShD9YwEfo_18-2-rgb_front.mp4") #text+audio fuison(new)
     # concat_side_by_side("_fZbAxSSbX4_0-5-rgb_front_origin/_fZbAxSSbX4_0-5-rgb_front.mp4","_fZbAxSSbX4_0-5-rgb_front_new/_fZbAxSSbX4_0-5-rgb_front.mp4") #text+audio fuison(new)
-    concat_side_by_side("/home/student/hwu/Workplace/AiOS/-9Kic0QsCYs_4-8-rgb_front/-9Kic0QsCYs_4-8-rgb_front.mp4","/data/hwu/how2sign/raw_videos_train/-9Kic0QsCYs_4-8-rgb_front.mp4") #text+audio fuison(new)
+    # concat_side_by_side("/home/student/hwu/Workplace/AiOS/-9Kic0QsCYs_4-8-rgb_front/-9Kic0QsCYs_4-8-rgb_front.mp4","/data/hwu/how2sign/raw_videos_train/-9Kic0QsCYs_4-8-rgb_front.mp4") #text+audio fuison(new)
+    concat_side_by_side("/home/student/hwu/Workplace/AiOS/_-adcxjm1R4_0-8-rgb_front_ours/_-adcxjm1R4_0-8-rgb_front.mp4","/home/student/hwu/Workplace/AiOS/_-adcxjm1R4_0-8-rgb_front/_-adcxjm1R4_0-8-rgb_front.mp4") #text+audio fuison(new)
+
 

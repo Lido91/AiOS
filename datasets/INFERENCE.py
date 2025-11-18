@@ -10,6 +10,7 @@ from detrsmpl.data.datasets.pipelines.transforms import Normalize
 from detrsmpl.utils.ffmpeg_utils import video_to_images, vid_info_reader
 from mmcv.runner import get_dist_info
 import torch.distributed as dist
+from tqdm import tqdm
 
 from fractions import Fraction
 
@@ -58,7 +59,14 @@ class INFERENCE(torch.utils.data.Dataset):
         if self.id_file and osp.exists(self.id_file):
             with open(self.id_file, 'r') as f:
                 # Read IDs from file, strip whitespace and ignore empty lines
-                self.filter_ids = set(line.strip() for line in f if line.strip())
+                # Support both newline-separated and space-separated IDs
+                all_ids = []
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        # Split by whitespace to handle space-separated IDs
+                        all_ids.extend(line.split())
+                self.filter_ids = set(all_ids)
             if rank == 0:
                 print(f'[INFERENCE] Loaded {len(self.filter_ids)} IDs from {self.id_file}')
 
@@ -96,27 +104,83 @@ class INFERENCE(torch.utils.data.Dataset):
                 print(f'[INFERENCE] filtered to {len(self.samples)} frames based on id_file')
 
     def _gather_image_samples(self):
-        image_patterns = ['*.jpg', '*.png', '*.jpeg']
-        all_images = []
-        for pattern in image_patterns:
-            all_images.extend(glob(osp.join(self.img_dir, '**', pattern), recursive=True))
+        rank, _ = get_dist_info()
 
-        all_images = sorted(set(all_images))
+        # If we have filter_ids, directly build paths from IDs (much faster)
+        if self.filter_ids:
+            if rank == 0:
+                print(f'[INFERENCE] Building paths for {len(self.filter_ids)} IDs...')
 
-        if not all_images:
-            raise FileNotFoundError(f'No image files found under {self.img_dir}')
+            image_extensions = ['.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG']
+            image_patterns = ['*.jpg', '*.png', '*.jpeg']
+            iterator = tqdm(self.filter_ids, desc='Building image paths', disable=(rank != 0))
 
-        for img_path in all_images:
-            rel_path = osp.relpath(img_path, self.img_dir)
-            rel_dir = osp.dirname(rel_path)
-            if rel_dir == '.':
-                rel_dir = ''
-            frame_name = osp.splitext(osp.basename(img_path))[0]
+            for img_id in iterator:
+                # First, check if img_id is a directory containing images
+                dir_path = osp.join(self.img_dir, img_id)
+                if osp.isdir(dir_path):
+                    # It's a directory, gather all images from it
+                    for pattern in image_patterns:
+                        images_in_dir = glob(osp.join(dir_path, pattern))
+                        for img_path in images_in_dir:
+                            frame_name = osp.splitext(osp.basename(img_path))[0]
+                            self.samples.append({
+                                'image_path': img_path,
+                                'relative_dir': img_id,
+                                'frame_name': frame_name
+                            })
+                else:
+                    # Try to find it as a file with different extensions
+                    found = False
+                    for ext in image_extensions:
+                        img_path = osp.join(self.img_dir, img_id + ext)
+                        if osp.exists(img_path):
+                            # Parse relative directory from the ID
+                            rel_dir = osp.dirname(img_id) if '/' in img_id or '\\' in img_id else ''
+                            frame_name = osp.basename(img_id)
 
-            # Filter by ID if filter_ids is provided
-            # For directory-based datasets, we can filter by full relative path or just frame name
-            full_id = osp.join(rel_dir, frame_name) if rel_dir else frame_name
-            if self.filter_ids is None or frame_name in self.filter_ids or full_id in self.filter_ids:
+                            self.samples.append({
+                                'image_path': img_path,
+                                'relative_dir': rel_dir,
+                                'frame_name': frame_name
+                            })
+                            found = True
+                            break
+
+                    if not found and rank == 0:
+                        # Only warn occasionally to avoid flooding logs
+                        if len(self.samples) % 10000 == 0:
+                            print(f'[WARNING] Could not find image or directory for ID: {img_id}')
+
+        else:
+            # Original behavior: scan all images in directory
+            image_patterns = ['*.jpg', '*.png', '*.jpeg']
+            all_images = []
+
+            if rank == 0:
+                print('[INFERENCE] Searching for images in directory...')
+
+            for pattern in image_patterns:
+                all_images.extend(glob(osp.join(self.img_dir, '**', pattern), recursive=True))
+
+            all_images = sorted(set(all_images))
+
+            if not all_images:
+                raise FileNotFoundError(f'No image files found under {self.img_dir}')
+
+            if rank == 0:
+                print(f'[INFERENCE] Found {len(all_images)} total images')
+
+            # Use tqdm only on rank 0 to avoid duplicate progress bars
+            iterator = tqdm(all_images, desc='Processing images', disable=(rank != 0))
+
+            for img_path in iterator:
+                rel_path = osp.relpath(img_path, self.img_dir)
+                rel_dir = osp.dirname(rel_path)
+                if rel_dir == '.':
+                    rel_dir = ''
+                frame_name = osp.splitext(osp.basename(img_path))[0]
+
                 self.samples.append({
                     'image_path': img_path,
                     'relative_dir': rel_dir,

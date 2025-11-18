@@ -346,6 +346,7 @@ def inference(model,
         result = postprocessors['bbox'](outputs, orig_target_sizes, targets, data_batch_nc)    
         # 
         dataset.inference(result)
+    import pdb; pdb.set_trace()
 
     if rank == 0 and args.to_vid:
         if hasattr(dataset,'result_img_dir'):

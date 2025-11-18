@@ -155,7 +155,7 @@ def _load_obj_sequence(obj_files: Sequence[Path]) -> Tuple[np.ndarray, np.ndarra
     return verts_stack, faces
 
 
-DEFAULT_OBJ_VIDEO_FPS = 30
+DEFAULT_OBJ_VIDEO_FPS = 12
 
 
 def _build_simple_renderer(device: torch.device, resolution: Tuple[int, int]) -> MeshRenderer:

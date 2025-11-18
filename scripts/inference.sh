@@ -15,14 +15,15 @@ CMD="python -m torch.distributed.launch \
     --nproc_per_node ${GPU_NUM} \
     main.py \
     -c config/aios_smplx_demo.py \
-    --options batch_size=8 backbone=resnet50 num_person=${NUM_PERSON} threshold=${THRESHOLD} testset=INFERENCE \
+    --options batch_size=8 backbone=resnet50 num_person=${NUM_PERSON} threshold=${THRESHOLD} \
     --resume ${CHECKPOINT} \
     --eval \
     --inference \
+    --to_vid \
     --inference_input ${INPUT_VIDEO} \
-    --output_dir demo/${OUTPUT_DIR}"
+    --output_dir ${OUTPUT_DIR}" 
 
-# Add id_file parameter if provided
+# Add id_file parameter if providedí
 if [ -n "${ID_FILE}" ]; then
     CMD="${CMD} --id_file ${ID_FILE}"
 fi
