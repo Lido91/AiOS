@@ -3,8 +3,6 @@ import os.path as osp
 from glob import glob
 import shutil
 
-from fractions import Fraction
-
 import mmcv
 import cv2
 import torch
@@ -22,6 +20,8 @@ from detrsmpl.core.visualization.visualize_smpl import render_smpl
 from detrsmpl.models.body_models.builder import build_body_model
 from detrsmpl.utils.ffmpeg_utils import video_to_images, vid_info_reader
 
+from fractions import Fraction
+
 def _parse_fps(value: str, default: float = 30.0) -> float:
     if value and value not in ("0/0", "0", "N/A"):
         try:
@@ -30,12 +30,12 @@ def _parse_fps(value: str, default: float = 30.0) -> float:
             pass
     return float(default)
 
-
 class INFERENCE_demo(torch.utils.data.Dataset):
-    def __init__(self, img_dir=None, out_path=None):
-        
+    def __init__(self, img_dir=None, out_path=None, id_file=None):
+
         self.output_path = out_path
         self.img_dir = img_dir
+        self.id_file = id_file
         self.is_vid = False
         body_model_cfg = dict(
             type='smplx',
@@ -54,17 +54,16 @@ class INFERENCE_demo(torch.utils.data.Dataset):
         if self.img_dir.endswith('.mp4'):
             self.is_vid = True
             self.img_name = self.img_dir.split('/')[-1][:-4]
-            # self.img_dir = self.img_dir[:-4]
-        else:
-            self.img_name = self.img_dir.split('/')[-1]
-        
-        if self.is_vid:
+            # Detect source video FPS
             info = vid_info_reader(self.img_dir)
             fps_str = info.video_stream.get('avg_frame_rate') or info.video_stream.get('r_frame_rate')
             self.source_fps = _parse_fps(fps_str)
+            if rank == 0:
+                print(f'[INFO] Detected source video FPS: {self.source_fps}')
         else:
-            self.source_fps = 30.0
-        
+            self.img_name = self.img_dir.split('/')[-1]
+            self.source_fps = 30.0  # Default FPS for image sequences
+
         self.output_path = os.path.join(self.output_path, self.img_name)
         os.makedirs(self.output_path, exist_ok=True)
         self.mesh_path = os.path.join(self.output_path, 'mesh')
@@ -72,6 +71,7 @@ class INFERENCE_demo(torch.utils.data.Dataset):
         self.tmp_dir = os.path.join(self.output_path, 'temp_img')
         os.makedirs(self.tmp_dir, exist_ok=True)
         self.result_img_dir = os.path.join(self.output_path, 'res_img')
+        os.makedirs(self.result_img_dir, exist_ok=True)
 
         if not self.is_vid:
             if rank == 0:
@@ -134,13 +134,14 @@ class INFERENCE_demo(torch.utils.data.Dataset):
             body_bbox = body_bbox * scale
             joint_3d, _ =  convert_kps(out['smpl_kp3d'].clone().cpu().numpy(),src='smplx',dst='smplx', approximate=True)
 
+            valid_count = 0
             for i, score in enumerate(scores):
                 if score < self.score_threshold:
                     break
-                if i>self.num_person:
+                if i >= self.num_person:
                     break
                 save_name = img_paths[ann_idx].split('/')[-1]
-                save_name = save_name.split('.')[0] 
+                save_name = save_name.split('.')[0]
                 vert = out['smpl_verts'][i] + out['cam_trans'][i][None]
                 # save mesh
                 exist_result_path = glob(osp.join(self.mesh_path, save_name + '*'))
@@ -155,13 +156,16 @@ class INFERENCE_demo(torch.utils.data.Dataset):
 
                 save_name += '_personId_' + str(person_idx) + '.obj'
                 save_obj(osp.join(self.mesh_path, save_name), vert, faces=torch.tensor(self.body_model.faces.astype(np.int32)))
-            
-            if i == 0:
-                save_name = img_paths[ann_idx].split('/')[-1][:-4]
-                cv2.imwrite(os.path.join(self.result_img_dir,img_paths[ann_idx].split('/')[-1]), img)
+                valid_count += 1
+
+            # Save result image for every frame
+            if valid_count == 0:
+                # No detections, save original image
+                cv2.imwrite(os.path.join(self.result_img_dir, img_paths[ann_idx].split('/')[-1]), img)
             else:
-                verts = out['smpl_verts'][:i] + out['cam_trans'][:i][:, None] 
-                img = mmcv.imshow_bboxes(img, body_bbox[:i], show=False, colors='green') 
+                # Render SMPL-X model(s) on the image
+                verts = out['smpl_verts'][:valid_count] + out['cam_trans'][:valid_count][:, None]
+                img = mmcv.imshow_bboxes(img, body_bbox[:valid_count], show=False, colors='green')
                 render_smpl(
                     verts=verts[None],
                     body_model=self.body_model,
@@ -171,7 +175,7 @@ class INFERENCE_demo(torch.utils.data.Dataset):
                          [0, 0, 1]]),
                     R=None,
                     T=None,
-                    output_path=os.path.join(self.result_img_dir,img_paths[ann_idx].split('/')[-1]),
+                    output_path=os.path.join(self.result_img_dir, img_paths[ann_idx].split('/')[-1]),
                     image_array=cv2.resize(img, (img_shape[0],img_shape[1]), cv2.INTER_CUBIC),
                     in_ndc=False,
                     alpha=0.9,
@@ -181,7 +185,6 @@ class INFERENCE_demo(torch.utils.data.Dataset):
                     no_grad=True,
                     device='cuda',
                     resolution=[img_shape[1],img_shape[0]],
-                    render_choice='hq' 
+                    render_choice='hq'
                 )
         return None
-

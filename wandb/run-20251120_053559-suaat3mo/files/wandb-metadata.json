@@ -1,0 +1,79 @@
+{
+  "os":  "Linux-5.15.0-138-generic-x86_64-with-glibc2.17",
+  "python":  "CPython 3.8.20",
+  "startedAt":  "2025-11-20T05:35:59.916165Z",
+  "args":  [
+    "--local_rank=1",
+    "-c",
+    "config/aios_smplx_demo.py",
+    "--options",
+    "batch_size=8",
+    "backbone=resnet50",
+    "num_person=1",
+    "threshold=0.6",
+    "--resume",
+    "data/checkpoint/aios_checkpoint.pth",
+    "--eval",
+    "--inference",
+    "--inference_input",
+    "/data/hwu/how2sign/how2sign_images_val",
+    "--output_dir",
+    "/data/hwu/how2sign/how2sign_smplx_val",
+    "--id_file",
+    "clip_ids_part1_of2.txt"
+  ],
+  "program":  "<python with no main file>",
+  "git":  {
+    "remote":  "https://github.com/Lido91/AiOS.git",
+    "commit":  "33f900751178ef89e01403e6d99af9ae410f3b50"
+  },
+  "email":  "1353099226why@gmail.com",
+  "root":  "/home/student/hwu/Workplace/AiOS",
+  "host":  "cyber.cs.nor.ou.edu",
+  "executable":  "/home/student/hwu/miniconda3/envs/aios/bin/python",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "gpu":  "NVIDIA L40S",
+  "gpu_count":  4,
+  "disk":  {
+    "/":  {
+      "total":  "1876350566400",
+      "used":  "1409306099712"
+    }
+  },
+  "memory":  {
+    "total":  "608351535104"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA L40S",
+      "memoryTotal":  "48305799168",
+      "cudaCores":  18176,
+      "architecture":  "Ada",
+      "uuid":  "GPU-79a9867d-d395-0f56-7fb5-b84082075ae4"
+    },
+    {
+      "name":  "NVIDIA L40S",
+      "memoryTotal":  "48305799168",
+      "cudaCores":  18176,
+      "architecture":  "Ada",
+      "uuid":  "GPU-98211153-1acb-d5db-3c55-e66cc3eae772"
+    },
+    {
+      "name":  "NVIDIA L40S",
+      "memoryTotal":  "48305799168",
+      "cudaCores":  18176,
+      "architecture":  "Ada",
+      "uuid":  "GPU-8b84593d-d0c7-d31c-62d9-4dcd800d4b27"
+    },
+    {
+      "name":  "NVIDIA L40S",
+      "memoryTotal":  "48305799168",
+      "cudaCores":  18176,
+      "architecture":  "Ada",
+      "uuid":  "GPU-6b2fa849-c8d7-8dee-7130-869ac6d680e0"
+    }
+  ],
+  "cudaVersion":  "12.4",
+  "writerId":  "nknuloprr10k53vp3juk9o05fxvq26hl"
+}

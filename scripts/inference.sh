@@ -6,7 +6,7 @@ INPUT_VIDEO=$2
 OUTPUT_DIR=$3
 NUM_PERSON=${4:-1}
 THRESHOLD=${5:-0.3}
-GPU_NUM=${6:-8}
+GPU_NUM=${6:-2}
 ID_FILE=${7:-}  # Optional id.txt file path
 export CUDA_VISIBLE_DEVICES=2,3
 
@@ -19,9 +19,9 @@ CMD="python -m torch.distributed.launch \
     --resume ${CHECKPOINT} \
     --eval \
     --inference \
-    --to_vid \
     --inference_input ${INPUT_VIDEO} \
     --output_dir ${OUTPUT_DIR}" 
+
 
 # Add id_file parameter if providedí
 if [ -n "${ID_FILE}" ]; then

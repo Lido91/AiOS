@@ -29,6 +29,7 @@ class INFERENCE(torch.utils.data.Dataset):
         self.output_path = out_path
         self.img_dir = img_dir
         self.id_file = id_file
+        self.skip_existing = True  # Enable skip logic for existing files
 
         self.is_vid = False
 
@@ -232,6 +233,15 @@ class INFERENCE(torch.utils.data.Dataset):
         for out in outs:
             ann_idx = out['image_idx']
             sample = self.samples[ann_idx]
+
+            # Skip if this frame already has output files
+            save_dir = self._resolve_save_directory(sample)
+            if self.skip_existing:
+                existing_files = glob(osp.join(save_dir, f"{sample['frame_name']}_person_*.pkl"))
+                if existing_files:
+                    # Frame already processed, skip it
+                    continue
+
             scores = out['scores'].clone().cpu().numpy()
             img_shape = out['img_shape'].cpu().numpy()[::-1]  # width, height
             width, height = img_shape
@@ -248,7 +258,6 @@ class INFERENCE(torch.utils.data.Dataset):
                 joint_proj[:, :, 0] = joint_proj[:, :, 0] * (1200 / 800)
                 joint_proj[:, :, 1] = joint_proj[:, :, 1] * (1600 / 1066)
 
-            save_dir = self._resolve_save_directory(sample)
             rel_output_key = osp.join(sample['relative_dir'], sample['frame_name']) if sample['relative_dir'] else sample['frame_name']
             per_frame_results = []
 
@@ -270,7 +279,7 @@ class INFERENCE(torch.utils.data.Dataset):
                 }
 
 
-                
+
 
                 save_path = osp.join(save_dir, f"{sample['frame_name']}_person_{i}.pkl")
                 with open(save_path, 'wb') as f:

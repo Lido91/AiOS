@@ -1,0 +1,32 @@
+{
+  "config_file": "config/aios_smplx_demo.py",
+  "options": {
+    "batch_size": 8,
+    "backbone": "resnet50",
+    "num_person": 0.1,
+    "threshold": 2
+  },
+  "output_dir": "2",
+  "device": "cuda",
+  "seed": 42,
+  "resume": "/data/hwu/how2sign/raw_videos_test/g0iNy-yPisM_14-8-rgb_front.mp4",
+  "pretrain_model_path": null,
+  "finetune_ignore": null,
+  "start_epoch": 0,
+  "eval": true,
+  "num_workers": 0,
+  "test": false,
+  "debug": false,
+  "find_unused_params": false,
+  "save_log": false,
+  "to_vid": true,
+  "inference": true,
+  "rank": 0,
+  "local_rank": 0,
+  "amp": false,
+  "inference_input": "demo",
+  "id_file": null,
+  "world_size": 2,
+  "gpu": 0,
+  "distributed": true
+}

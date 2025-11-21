@@ -346,12 +346,16 @@ def inference(model,
         result = postprocessors['bbox'](outputs, orig_target_sizes, targets, data_batch_nc)    
         # 
         dataset.inference(result)
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
 
-    if rank == 0 and args.to_vid:
+    if args.to_vid and rank == 0:
         if hasattr(dataset,'result_img_dir'):
-            output_fps = getattr(dataset, 'source_fps', 30)
+            output_fps = getattr(dataset, 'source_fps', 24)
+            print(f'[INFO] Creating video from {dataset.result_img_dir}')
+            print(f'[INFO] Output video: {os.path.join(dataset.output_path, dataset.img_name+"_demo.mp4")}')
+            print(f'[INFO] FPS: {output_fps}')
             images_to_video(dataset.result_img_dir, os.path.join(dataset.output_path, dataset.img_name+'_demo.mp4'), remove_raw_file=False, fps=output_fps)
+            print(f'[INFO] Video created successfully!')
             # shutil.rmtree(dataset.result_img_dir)
             # shutil.rmtree(dataset.tmp_dir)
 
