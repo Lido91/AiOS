@@ -1,0 +1,90 @@
+_wandb:
+    value:
+        cli_version: 0.22.0
+        e:
+            4enq0ar1kwz6thj6nygcn602jp9pnqar:
+                args:
+                    - -c
+                    - config/aios_smplx_demo.py
+                    - --options
+                    - batch_size=8
+                    - backbone=resnet50
+                    - num_person=1
+                    - threshold=0.6
+                    - --resume
+                    - data/checkpoint/aios_checkpoint.pth
+                    - --eval
+                    - --inference
+                    - --inference_input
+                    - /data/hwu/youtube_dataset/clip_fps24_img_0
+                    - --output_dir
+                    - /data/hwu/youtube3d/img_0
+                cpu_count: 64
+                cpu_count_logical: 128
+                cudaVersion: "12.4"
+                disk:
+                    /:
+                        total: "1876350566400"
+                        used: "1756505714688"
+                email: 1353099226why@gmail.com
+                executable: /home/student/hwu/miniconda3/envs/aios/bin/python
+                git:
+                    commit: 2311e4e6d977a3295e752555b4adb79b9f79580e
+                    remote: https://github.com/Lido91/AiOS.git
+                gpu: NVIDIA L40S
+                gpu_count: 4
+                gpu_nvidia:
+                    - architecture: Ada
+                      cudaCores: 18176
+                      memoryTotal: "48305799168"
+                      name: NVIDIA L40S
+                      uuid: GPU-79a9867d-d395-0f56-7fb5-b84082075ae4
+                    - architecture: Ada
+                      cudaCores: 18176
+                      memoryTotal: "48305799168"
+                      name: NVIDIA L40S
+                      uuid: GPU-98211153-1acb-d5db-3c55-e66cc3eae772
+                    - architecture: Ada
+                      cudaCores: 18176
+                      memoryTotal: "48305799168"
+                      name: NVIDIA L40S
+                      uuid: GPU-8b84593d-d0c7-d31c-62d9-4dcd800d4b27
+                    - architecture: Ada
+                      cudaCores: 18176
+                      memoryTotal: "48305799168"
+                      name: NVIDIA L40S
+                      uuid: GPU-6b2fa849-c8d7-8dee-7130-869ac6d680e0
+                host: cyber.cs.nor.ou.edu
+                memory:
+                    total: "608351535104"
+                os: Linux-5.15.0-138-generic-x86_64-with-glibc2.17
+                program: <python with no main file>
+                python: CPython 3.8.20
+                root: /home/student/hwu/Workplace/AiOS
+                startedAt: "2026-01-16T05:48:07.471207Z"
+                writerId: 4enq0ar1kwz6thj6nygcn602jp9pnqar
+        m: []
+        python_version: 3.8.20
+        t:
+            "1":
+                - 1
+                - 37
+                - 41
+                - 49
+                - 51
+                - 63
+                - 105
+            "2":
+                - 1
+                - 37
+                - 41
+                - 49
+                - 51
+                - 63
+                - 105
+            "3":
+                - 13
+            "4": 3.8.20
+            "5": 0.22.0
+            "12": 0.22.0
+            "13": linux-x86_64

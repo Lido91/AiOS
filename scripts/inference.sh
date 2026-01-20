@@ -8,10 +8,10 @@ NUM_PERSON=${4:-1}
 THRESHOLD=${5:-0.3}
 GPU_NUM=${6:-2}
 ID_FILE=${7:-}  # Optional id.txt file path
-export CUDA_VISIBLE_DEVICES=2,3
+export CUDA_VISIBLE_DEVICES=1,2
 
 # Build the command with optional id_file parameter
-CMD="python -m torch.distributed.launch \
+CMD="torchrun \
     --nproc_per_node ${GPU_NUM} \
     main.py \
     -c config/aios_smplx_demo.py \
@@ -20,7 +20,8 @@ CMD="python -m torch.distributed.launch \
     --eval \
     --inference \
     --inference_input ${INPUT_VIDEO} \
-    --output_dir ${OUTPUT_DIR}" 
+    --output_dir ${OUTPUT_DIR}"
+
 
 
 # Add id_file parameter if providedí
