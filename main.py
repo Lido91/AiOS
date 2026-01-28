@@ -76,6 +76,8 @@ def get_args_parser():
     parser.add_argument('--inference_input', default=None, type=str)
     parser.add_argument('--id_file', default=None, type=str,
                         help='Path to id.txt file for filtering which samples to process')
+    parser.add_argument('--skip_file', default=None, type=str,
+                        help='Path to file listing IDs to skip (e.g. multi_signer_ids.txt)')
     return parser
 
 
@@ -208,7 +210,7 @@ def main(args):
     if not args.inference:
         dataset_val = eval(cfg.testset)(transforms.ToTensor(), "test")
     else:
-        dataset_val = eval(cfg.testset)(args.inference_input, args.output_dir, args.id_file)
+        dataset_val = eval(cfg.testset)(args.inference_input, args.output_dir, args.id_file, args.skip_file)
         
     # Will first split video into dataset perframe
     data_loader_val = build_dataloader(

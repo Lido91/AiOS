@@ -24,11 +24,12 @@ def _parse_fps(value: str, default: float = 30.0) -> float:
 
 
 class INFERENCE(torch.utils.data.Dataset):
-    def __init__(self, img_dir=None, out_path=None, id_file=None):
+    def __init__(self, img_dir=None, out_path=None, id_file=None, skip_file=None):
 
         self.output_path = out_path
         self.img_dir = img_dir
         self.id_file = id_file
+        self.skip_file = skip_file
         self.skip_existing = True  # Enable skip logic for existing files
 
         self.is_vid = False
@@ -71,6 +72,19 @@ class INFERENCE(torch.utils.data.Dataset):
             if rank == 0:
                 print(f'[INFERENCE] Loaded {len(self.filter_ids)} IDs from {self.id_file}')
 
+        # Load skip IDs if skip_file is provided
+        self.skip_ids = None
+        if self.skip_file and osp.exists(self.skip_file):
+            with open(self.skip_file, 'r') as f:
+                skip_list = []
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        skip_list.extend(line.split())
+                self.skip_ids = set(skip_list)
+            if rank == 0:
+                print(f'[INFERENCE] Loaded {len(self.skip_ids)} skip IDs from {self.skip_file}')
+
         self.samples = []  # keep metadata for each frame
         self.tmp_dir = None
 
@@ -84,7 +98,9 @@ class INFERENCE(torch.utils.data.Dataset):
             frame_paths = sorted(glob(osp.join(self.tmp_dir, '*')))
             for frame_path in frame_paths:
                 frame_name = osp.splitext(osp.basename(frame_path))[0]
-                # Filter by ID if filter_ids is provided
+                # Filter by ID if filter_ids is provided; skip if in skip_ids
+                if self.skip_ids and frame_name in self.skip_ids:
+                    continue
                 if self.filter_ids is None or frame_name in self.filter_ids:
                     self.samples.append({
                         'image_path': frame_path,
@@ -103,6 +119,8 @@ class INFERENCE(torch.utils.data.Dataset):
             print(f'[INFERENCE] collected {len(self.samples)} frames from {self.img_dir}')
             if self.filter_ids:
                 print(f'[INFERENCE] filtered to {len(self.samples)} frames based on id_file')
+            if self.skip_ids:
+                print(f'[INFERENCE] skipped IDs from skip_file, {len(self.samples)} frames remaining')
 
     def _gather_image_samples(self):
         rank, _ = get_dist_info()
@@ -114,7 +132,8 @@ class INFERENCE(torch.utils.data.Dataset):
 
             image_extensions = ['.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG']
             image_patterns = ['*.jpg', '*.png', '*.jpeg']
-            iterator = tqdm(self.filter_ids, desc='Building image paths', disable=(rank != 0))
+            ids_to_process = self.filter_ids - self.skip_ids if self.skip_ids else self.filter_ids
+            iterator = tqdm(ids_to_process, desc='Building image paths', disable=(rank != 0))
 
             for img_id in iterator:
                 # First, check if img_id is a directory containing images
@@ -181,6 +200,10 @@ class INFERENCE(torch.utils.data.Dataset):
                 if rel_dir == '.':
                     rel_dir = ''
                 frame_name = osp.splitext(osp.basename(img_path))[0]
+
+                # Skip if the relative dir or frame name is in skip_ids
+                if self.skip_ids and (rel_dir in self.skip_ids or frame_name in self.skip_ids):
+                    continue
 
                 self.samples.append({
                     'image_path': img_path,

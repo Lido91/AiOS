@@ -1,0 +1,32 @@
+{
+  "config_file": "config/aios_smplx_demo.py",
+  "options": {
+    "batch_size": 8,
+    "backbone": "resnet50",
+    "num_person": 1,
+    "threshold": 0.6
+  },
+  "output_dir": "demo_asl",
+  "device": "cuda",
+  "seed": 42,
+  "resume": "data/checkpoint/aios_checkpoint.pth",
+  "pretrain_model_path": null,
+  "finetune_ignore": null,
+  "start_epoch": 0,
+  "eval": true,
+  "num_workers": 0,
+  "test": false,
+  "debug": false,
+  "find_unused_params": false,
+  "save_log": false,
+  "to_vid": false,
+  "inference": true,
+  "rank": 0,
+  "local_rank": 0,
+  "amp": false,
+  "inference_input": "/data/hwu/youtube3d/img_0/clip_fps24_img_0_out/smplx_params/-5H_8K2k7-4-000",
+  "id_file": "1",
+  "world_size": 1,
+  "gpu": 0,
+  "distributed": true
+}

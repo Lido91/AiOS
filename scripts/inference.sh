@@ -8,7 +8,8 @@ NUM_PERSON=${4:-1}
 THRESHOLD=${5:-0.3}
 GPU_NUM=${6:-2}
 ID_FILE=${7:-}  # Optional id.txt file path
-export CUDA_VISIBLE_DEVICES=1,2
+SKIP_FILE='multi_signer_ids.txt' # Optional skip file path (e.g. multi_signer_ids.txt)
+export CUDA_VISIBLE_DEVICES=3
 
 # Build the command with optional id_file parameter
 CMD="torchrun \
@@ -24,9 +25,14 @@ CMD="torchrun \
 
 
 
-# Add id_file parameter if providedí
+# Add id_file parameter if provided
 if [ -n "${ID_FILE}" ]; then
     CMD="${CMD} --id_file ${ID_FILE}"
+fi
+
+# Add skip_file parameter if provided
+if [ -n "${SKIP_FILE}" ]; then
+    CMD="${CMD} --skip_file ${SKIP_FILE}"
 fi
 
 # Execute the command
