@@ -87,6 +87,7 @@ class INFERENCE(torch.utils.data.Dataset):
 
         self.samples = []  # keep metadata for each frame
         self.tmp_dir = None
+        self.bad_dirs = set()  # Track directories with corrupted images
 
         if self.is_vid:
             self.tmp_dir = os.path.join(self.output_path, 'temp_img')
@@ -96,17 +97,24 @@ class INFERENCE(torch.utils.data.Dataset):
             if dist.is_available() and dist.is_initialized():
                 dist.barrier()
             frame_paths = sorted(glob(osp.join(self.tmp_dir, '*')))
+            skipped_existing = 0
             for frame_path in frame_paths:
                 frame_name = osp.splitext(osp.basename(frame_path))[0]
                 # Filter by ID if filter_ids is provided; skip if in skip_ids
                 if self.skip_ids and frame_name in self.skip_ids:
                     continue
                 if self.filter_ids is None or frame_name in self.filter_ids:
+                    # Skip if already processed
+                    if self._is_frame_already_processed(frame_name, ''):
+                        skipped_existing += 1
+                        continue
                     self.samples.append({
                         'image_path': frame_path,
                         'relative_dir': '',
                         'frame_name': frame_name
                     })
+            if rank == 0 and skipped_existing > 0:
+                print(f'[INFERENCE] Skipped {skipped_existing} already-processed frames')
         else:
             self._gather_image_samples()
 
@@ -135,6 +143,7 @@ class INFERENCE(torch.utils.data.Dataset):
             ids_to_process = self.filter_ids - self.skip_ids if self.skip_ids else self.filter_ids
             iterator = tqdm(ids_to_process, desc='Building image paths', disable=(rank != 0))
 
+            skipped_existing = 0
             for img_id in iterator:
                 # First, check if img_id is a directory containing images
                 dir_path = osp.join(self.img_dir, img_id)
@@ -144,6 +153,10 @@ class INFERENCE(torch.utils.data.Dataset):
                         images_in_dir = glob(osp.join(dir_path, pattern))
                         for img_path in images_in_dir:
                             frame_name = osp.splitext(osp.basename(img_path))[0]
+                            # Skip if already processed
+                            if self._is_frame_already_processed(frame_name, img_id):
+                                skipped_existing += 1
+                                continue
                             self.samples.append({
                                 'image_path': img_path,
                                 'relative_dir': img_id,
@@ -159,6 +172,12 @@ class INFERENCE(torch.utils.data.Dataset):
                             rel_dir = osp.dirname(img_id) if '/' in img_id or '\\' in img_id else ''
                             frame_name = osp.basename(img_id)
 
+                            # Skip if already processed
+                            if self._is_frame_already_processed(frame_name, rel_dir):
+                                skipped_existing += 1
+                                found = True
+                                break
+
                             self.samples.append({
                                 'image_path': img_path,
                                 'relative_dir': rel_dir,
@@ -171,6 +190,9 @@ class INFERENCE(torch.utils.data.Dataset):
                         # Only warn occasionally to avoid flooding logs
                         if len(self.samples) % 10000 == 0:
                             print(f'[WARNING] Could not find image or directory for ID: {img_id}')
+
+            if rank == 0 and skipped_existing > 0:
+                print(f'[INFERENCE] Skipped {skipped_existing} already-processed frames')
 
         else:
             # Original behavior: scan all images in directory
@@ -194,6 +216,7 @@ class INFERENCE(torch.utils.data.Dataset):
             # Use tqdm only on rank 0 to avoid duplicate progress bars
             iterator = tqdm(all_images, desc='Processing images', disable=(rank != 0))
 
+            skipped_existing = 0
             for img_path in iterator:
                 rel_path = osp.relpath(img_path, self.img_dir)
                 rel_dir = osp.dirname(rel_path)
@@ -205,11 +228,19 @@ class INFERENCE(torch.utils.data.Dataset):
                 if self.skip_ids and (rel_dir in self.skip_ids or frame_name in self.skip_ids):
                     continue
 
+                # Skip if already processed
+                if self._is_frame_already_processed(frame_name, rel_dir):
+                    skipped_existing += 1
+                    continue
+
                 self.samples.append({
                     'image_path': img_path,
                     'relative_dir': rel_dir,
                     'frame_name': frame_name
                 })
+
+            if rank == 0 and skipped_existing > 0:
+                print(f'[INFERENCE] Skipped {skipped_existing} already-processed frames')
 
     def _resolve_save_directory(self, sample):
         if sample['relative_dir']:
@@ -219,35 +250,81 @@ class INFERENCE(torch.utils.data.Dataset):
         os.makedirs(save_dir, exist_ok=True)
         return save_dir
 
+    def _is_frame_already_processed(self, frame_name, relative_dir=''):
+        """Check if output files already exist for this frame."""
+        if not self.skip_existing:
+            return False
+        if relative_dir:
+            save_dir = osp.join(self.smplx_output_root, relative_dir)
+        else:
+            save_dir = self.smplx_output_root
+        existing_files = glob(osp.join(save_dir, f"{frame_name}_person_*.pkl"))
+        return len(existing_files) > 0
+
        
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
         sample = self.samples[idx]
-        img = load_img(sample['image_path'],'BGR')
-        img_whole_bbox = np.array([0, 0, img.shape[1],img.shape[0]])
+
+        try:
+            img = load_img(sample['image_path'], 'BGR')
+        except (IOError, OSError) as e:
+            # Log the bad directory and return a dummy sample
+            bad_dir = sample['relative_dir'] if sample['relative_dir'] else 'root'
+            if bad_dir not in self.bad_dirs:
+                self.bad_dirs.add(bad_dir)
+                print(f"[WARNING] Failed to load image: {sample['image_path']}")
+                print(f"[WARNING] Marking directory '{bad_dir}' as bad. Add to skip_file to avoid in future runs.")
+                # Append to skip file if it exists
+                if self.skip_file:
+                    try:
+                        with open(self.skip_file, 'a') as f:
+                            f.write(f"\n{sample['relative_dir']}")
+                        print(f"[INFO] Added '{sample['relative_dir']}' to {self.skip_file}")
+                    except:
+                        pass
+            # Return a dummy result that will be skipped in inference
+            dummy_img = np.zeros((self.resolution[0], self.resolution[1], 3), dtype=np.float32)
+            inputs = {'img': dummy_img}
+            targets = {
+                'body_bbox_center': np.array([[0, 0, 1, 1]]),
+                'body_bbox_size': np.array([[0, 0, 1, 1]])}
+            meta_info = {
+                'ori_shape': np.array(self.resolution),
+                'img_shape': np.array(self.resolution),
+                'img2bb_trans': np.eye(2, 3),
+                'bb2img_trans': np.eye(2, 3),
+                'ann_idx': idx,
+                'is_bad_sample': True}  # Flag to skip in inference
+            result = {**inputs, **targets, **meta_info}
+            result = self.normalize(result)
+            result = self.format(result)
+            return result
+
+        img_whole_bbox = np.array([0, 0, img.shape[1], img.shape[0]])
         img, img2bb_trans, bb2img_trans, _, _ = \
             augmentation_keep_size(img, img_whole_bbox, 'test')
 
-        cropped_img_shape=img.shape[:2]
-        img = (img.astype(np.float32)) 
-        
+        cropped_img_shape = img.shape[:2]
+        img = (img.astype(np.float32))
+
         inputs = {'img': img}
         targets = {
             'body_bbox_center': np.array(img_whole_bbox[None]),
             'body_bbox_size': np.array(img_whole_bbox[None])}
         meta_info = {
-            'ori_shape':np.array(self.resolution),
+            'ori_shape': np.array(self.resolution),
             'img_shape': np.array(img.shape[:2]),
             'img2bb_trans': img2bb_trans,
             'bb2img_trans': bb2img_trans,
             'ann_idx': idx}
         result = {**inputs, **targets, **meta_info}
-        
+
         result = self.normalize(result)
         result = self.format(result)
-            
+
         return result
         
     def inference(self, outs):
@@ -256,6 +333,10 @@ class INFERENCE(torch.utils.data.Dataset):
         for out in outs:
             ann_idx = out['image_idx']
             sample = self.samples[ann_idx]
+
+            # Skip bad samples (corrupted images)
+            if sample['relative_dir'] in self.bad_dirs:
+                continue
 
             # Skip if this frame already has output files
             save_dir = self._resolve_save_directory(sample)
