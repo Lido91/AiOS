@@ -9,7 +9,7 @@ THRESHOLD=${5:-0.3}
 GPU_NUM=${6:-2}
 ID_FILE=${7:-}  # Optional id.txt file path
 SKIP_FILE='multi_signer_ids.txt' # Optional skip file path (e.g. multi_signer_ids.txt)
-export CUDA_VISIBLE_DEVICES=3
+export CUDA_VISIBLE_DEVICES=1,3
 
 # Build the command with optional id_file parameter
 CMD="torchrun \
